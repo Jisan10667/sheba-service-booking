@@ -8,6 +8,8 @@ import (
 	"service-booking/internal/model"
 	"service-booking/internal/repository"
 	"service-booking/pkg/auth"
+
+	"gorm.io/gorm"
 )
 
 // AuthService interface defines the methods for authentication and user management
@@ -40,9 +42,12 @@ func (s *authService) Register(user *model.User) (*model.User, error) {
 	user.Email = strings.TrimSpace(strings.ToLower(user.Email))
 
 	// Check if email already exists
-	existingUser, _ := s.userRepo.FindByEmail(user.Email)
-	if existingUser != nil {
-		return nil, errors.New("email already in use")
+	_, err := s.userRepo.FindByEmail(user.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+    		return nil, fmt.Errorf("failed to check existing user: %v", err)
+		}
+		if err == nil {
+    		return nil, errors.New("email already in use")
 	}
 
 	// Set default role if not specified
@@ -51,7 +56,7 @@ func (s *authService) Register(user *model.User) (*model.User, error) {
 	}
 
 	// Create the user
-	err := s.userRepo.Create(user)
+	err = s.userRepo.Create(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %v", err)
 	}

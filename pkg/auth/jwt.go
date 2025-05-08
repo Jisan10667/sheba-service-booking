@@ -40,14 +40,15 @@ type TokenConfig struct {
 
 // DefaultTokenConfig provides default JWT configuration
 func DefaultTokenConfig() TokenConfig {
+	secretKey := getSecretKey()
 	return TokenConfig{
-		SecretKey:             getSecretKey(),
-		AccessTokenDuration:   24 * time.Hour,
-		RefreshTokenDuration:  7 * 24 * time.Hour,
+		SecretKey:             secretKey,
+		AccessTokenDuration:   getAccessTokenDuration(),
+		RefreshTokenDuration:  getRefreshTokenDuration(),
 	}
 }
 
-// getSecretKey retrieves the secret key from environment or config
+// getSecretKey retrieves the secret key and token durations from environment or config
 func getSecretKey() string {
 	// First check environment variable
 	if secretKey := os.Getenv("JWT_SECRET_KEY"); secretKey != "" {
@@ -55,7 +56,6 @@ func getSecretKey() string {
 	}
 
 	// Fallback to config file
-	// Assuming you'll add a jwt section to your config file
 	secretKey := config.String("jwt_secret_key")
 	if secretKey == "" {
 		// Generate a fallback secret key (DO NOT USE IN PRODUCTION)
@@ -63,6 +63,50 @@ func getSecretKey() string {
 	}
 	return secretKey
 }
+
+// getAccessTokenDuration retrieves access token duration from config
+func getAccessTokenDuration() time.Duration {
+	// Check environment variable first
+	if envDuration := os.Getenv("ACCESS_TOKEN_DURATION"); envDuration != "" {
+		if duration, err := time.ParseDuration(envDuration); err == nil {
+			return duration
+		}
+	}
+
+	// Fallback to config file
+	accessDurationStr := config.String("access_token_duration")
+	if accessDurationStr != "" {
+		if duration, err := time.ParseDuration(accessDurationStr); err == nil {
+			return duration
+		}
+	}
+
+	// Default to 24 hours if no configuration is found
+	return 24 * time.Hour
+}
+
+// getRefreshTokenDuration retrieves refresh token duration from config
+func getRefreshTokenDuration() time.Duration {
+	// Check environment variable first
+	if envDuration := os.Getenv("REFRESH_TOKEN_DURATION"); envDuration != "" {
+		if duration, err := time.ParseDuration(envDuration); err == nil {
+			return duration
+		}
+	}
+
+	// Fallback to config file
+	refreshDurationStr := config.String("refresh_token_duration")
+	if refreshDurationStr != "" {
+		if duration, err := time.ParseDuration(refreshDurationStr); err == nil {
+			return duration
+		}
+	}
+
+	// Default to 7 days if no configuration is found
+	return 7 * 24 * time.Hour
+}
+
+
 
 // generateFallbackSecretKey creates a fallback secret key
 func generateFallbackSecretKey() string {
