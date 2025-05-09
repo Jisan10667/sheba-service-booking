@@ -21,16 +21,19 @@ func SetupRouter() *gin.Engine {
 	serviceRepo := repository.NewServiceRepository(db)
 	bookingRepo := repository.NewBookingRepository(db)
 	userRepo := repository.NewUserRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
 
 	// Initialize services
-	serviceService := service.NewServiceService(serviceRepo)
-	bookingService := service.NewBookingService(bookingRepo, serviceRepo)
+	serviceService := service.NewServiceService(serviceRepo, categoryRepo)
+	bookingService := service.NewBookingService(bookingRepo, serviceRepo, userRepo)
 	authService := service.NewAuthService(userRepo)
+	categoryService := service.NewCategoryService(categoryRepo)
 
 	// Initialize handlers
 	serviceHandler := handler.NewServiceHandler(serviceService)
 	bookingHandler := handler.NewBookingHandler(bookingService)
 	authHandler := handler.NewAuthHandler(authService)
+	categoryHandler := handler.NewCategoryHandler(categoryService)
 
 	// Middleware for rate limiting and CORS
 	router.Use(gin.Recovery())
@@ -42,10 +45,17 @@ func SetupRouter() *gin.Engine {
 		// Service routes
 		v1.GET("/services", serviceHandler.GetServices)
 		v1.GET("/services/:id", serviceHandler.GetServiceByID)
+		v1.GET("/services/featured", serviceHandler.GetFeaturedServices)
+
+		// Category routes
+		v1.GET("/categories", categoryHandler.GetCategories)
+		v1.GET("/categories/:id", categoryHandler.GetCategoryByID)
+		v1.GET("/categories/:id/subcategories", categoryHandler.GetSubCategories)
 
 		// Booking routes
 		v1.POST("/bookings", bookingHandler.CreateBooking)
 		v1.GET("/bookings/:id", bookingHandler.GetBookingByID)
+		v1.GET("/bookings/reference/:code", bookingHandler.GetBookingByReferenceCode)
 
 		// Auth routes
 		v1.POST("/auth/register", authHandler.Register)
@@ -62,6 +72,12 @@ func SetupRouter() *gin.Engine {
 		// User profile routes
 		protected.GET("/profile", authHandler.GetProfile)
 		protected.PUT("/profile", authHandler.UpdateProfile)
+		protected.POST("/profile/change-password", authHandler.ChangePassword)
+
+		// User bookings
+		protected.GET("/bookings", bookingHandler.GetBookings)
+		protected.PUT("/bookings/:id/status", bookingHandler.UpdateBookingStatus)
+		protected.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 	}
 
 	// Admin routes (protected)
@@ -77,6 +93,11 @@ func SetupRouter() *gin.Engine {
 		// Admin booking routes
 		admin.GET("/bookings", bookingHandler.GetBookings)
 		admin.PUT("/bookings/:id/status", bookingHandler.UpdateBookingStatus)
+
+		// Admin category routes
+		admin.POST("/categories", categoryHandler.CreateCategory)
+		admin.PUT("/categories/:id", categoryHandler.UpdateCategory)
+		admin.DELETE("/categories/:id", categoryHandler.DeleteCategory)
 	}
 
 	return router

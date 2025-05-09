@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
-	"strconv"
 	"service-booking/internal/model"
 	"service-booking/pkg/auth"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )

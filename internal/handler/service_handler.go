@@ -35,6 +35,9 @@ func (h *ServiceHandler) GetServices(c *gin.Context) {
 	var services []model.Service
 	var count int64
 
+	// Prepare filters
+	filters := make(map[string]interface{})
+
 	if categoryIDStr != "" {
 		categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
 		if err != nil {
@@ -42,19 +45,12 @@ func (h *ServiceHandler) GetServices(c *gin.Context) {
 			return
 		}
 		
-		services, count, err = h.serviceService.GetServicesByCategory(uint(categoryID), page, limit)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch services"})
-			return
-		}
-	} else {
-		services, count, err = h.serviceService.GetServices(page, limit)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch services"})
-			return
-		}
+		// Add category filter
+		filters["category_id"] = uint(categoryID)
 	}
 
+	// Use GetServices with filters
+	services, count, err = h.serviceService.GetServices(page, limit, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch services"})
 		return
@@ -67,6 +63,70 @@ func (h *ServiceHandler) GetServices(c *gin.Context) {
 			"page":        page,
 			"limit":       limit,
 			"total_pages": (count + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
+func (h *ServiceHandler) GetFeaturedServices(c *gin.Context) {
+	// Get limit from query parameter, default to 10 if not specified
+	limitStr := c.DefaultQuery("limit", "10")
+	
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	// Fetch featured services
+	services, err := h.serviceService.GetFeaturedServices(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch featured services"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": services,
+		"meta": gin.H{
+			"count": len(services),
+			"limit": limit,
+		},
+	})
+}
+
+func (h *ServiceHandler) GetFeaturedServicesByCategory(c *gin.Context) {
+	// Get category ID from path
+	categoryIDStr := c.Param("category_id")
+	categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category ID"})
+		return
+	}
+
+	// Get limit from query parameter, default to 10 if not specified
+	limitStr := c.DefaultQuery("limit", "10")
+	
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	// Prepare filters
+	filters := map[string]interface{}{
+		"category_id": uint(categoryID),
+		"is_featured": true,
+	}
+
+	// Fetch featured services for the specific category
+	services, count, err := h.serviceService.GetServices(1, limit, filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch featured services"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": services,
+		"meta": gin.H{
+			"total": count,
+			"limit": limit,
 		},
 	})
 }
