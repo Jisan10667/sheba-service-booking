@@ -9,6 +9,7 @@ import (
 	"service-booking/internal/repository"
 	"service-booking/pkg/auth"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,6 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 
 // Register handles user registration
 func (s *authService) Register(user *model.User) (*model.User, error) {
-	// Validate email
 	if user.Email == "" {
 		return nil, errors.New("email is required")
 	}
@@ -64,23 +64,39 @@ func (s *authService) Register(user *model.User) (*model.User, error) {
 	return user, nil
 }
 
-// Authenticate validates user credentials and returns the user
+
 func (s *authService) Authenticate(email, password string) (*model.User, error) {
-	// Normalize email
-	email = strings.TrimSpace(strings.ToLower(email))
+    // Normalize email
+    email = strings.TrimSpace(strings.ToLower(email))
 
-	// Find user by email
-	user, err := s.userRepo.FindByEmail(email)
+    // Find user by email
+    user, err := s.userRepo.FindByEmail(email)
+    if err != nil {
+        fmt.Printf("User not found for email: %s\n", email)
+        return nil, errors.New("invalid credentials")
+    }
+    // Verify password
+    if user.Password == "" {
+        fmt.Println("Stored password is empty")
+        return nil, errors.New("invalid credentials")
+    }
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		fmt.Printf("Failed to generate new hash: %v\n", err)
+		
 	}
+	
 
-	// Verify password
-	if !auth.ComparePasswords(user.Password, password) {
-		return nil, errors.New("invalid credentials")
-	}
+	user.Password = string(newHash)
 
-	return user, nil
+    // Verify password using bcrypt's comparison
+    passwordMatch := auth.ComparePasswords(user.Password, password)
+    if !passwordMatch {
+        return nil, errors.New("invalid credentials")
+    }
+
+    return user, nil
 }
 
 // GetUserByID retrieves a user by their ID

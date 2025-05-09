@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
-	
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -41,12 +41,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not hash password"})
 		return
 	}
+
+
 	user.Password = hashedPassword
 
 	// Set default role if not specified
 	if user.Role == "" {
 		user.Role = model.UserRoleUser
 	}
+
+	
 
 	// Register the user
 	registeredUser, err := h.authService.Register(&user)
@@ -62,6 +66,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		registeredUser.Name, 
 		string(registeredUser.Role),
 	)
+
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate tokens"})
 		return
@@ -83,49 +89,54 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 // Login handles user authentication
+// In internal/handler/auth_handler.go
+// In internal/handler/auth_handler.go
 func (h *AuthHandler) Login(c *gin.Context) {
-	var loginRequest struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required"`
-	}
+    var loginRequest struct {
+        Email    string `json:"email" binding:"required,email"`
+        Password string `json:"password" binding:"required"`
+    }
 
-	if err := c.ShouldBindJSON(&loginRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    if err := c.ShouldBindJSON(&loginRequest); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	// Authenticate user
-	user, err := h.authService.Authenticate(loginRequest.Email, loginRequest.Password)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
 
-	// Generate JWT tokens
-	accessToken, refreshToken, err := auth.GenerateAllTokens(
-		user.ID, 
-		user.Email, 
-		user.Name, 
-		string(user.Role),
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate tokens"})
-		return
-	}
+    // Authenticate user
+    user, err := h.authService.Authenticate(loginRequest.Email, loginRequest.Password)
+    if err != nil {
+        // Log the specific error
+        fmt.Printf("Authentication error for %s: %v\n", loginRequest.Email, err)
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+        return
+    }
 
-	// Prepare response (remove sensitive info)
-	userResponse := gin.H{
-		"id":    user.ID,
-		"email": user.Email,
-		"name":  user.Name,
-		"role":  user.Role,
-	}
+    // Generate JWT tokens
+    accessToken, refreshToken, err := auth.GenerateAllTokens(
+        user.ID, 
+        user.Email, 
+        user.Name, 
+        string(user.Role),
+    )
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate tokens"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"user":          userResponse,
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-	})
+    // Prepare response (remove sensitive info)
+    userResponse := gin.H{
+        "id":    user.ID,
+        "email": user.Email,
+        "name":  user.Name,
+        "role":  user.Role,
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "user":          userResponse,
+        "access_token":  accessToken,
+        "refresh_token": refreshToken,
+    })
 }
 
 // GetProfile retrieves the authenticated user's profile

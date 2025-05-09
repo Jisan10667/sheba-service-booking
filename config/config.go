@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
@@ -14,6 +15,11 @@ var AppConfig struct {
 		ServiceBookingDBConn string
 	}
 	HttpPort int
+	JWT      struct {
+		SecretKey            string
+		AccessTokenDuration  string
+		RefreshTokenDuration string
+	}
 }
 
 // LoadConfig loads the configuration from the app.conf file located in the config folder
@@ -48,15 +54,24 @@ func LoadConfig() error {
 		AppConfig.HttpPort = httpport
 	}
 
-	// Debugging: Log the value of HttpPort to ensure it's correctly loaded
+	// Load JWT configuration
+	jwtSection := cfg.Section("")
+	AppConfig.JWT.SecretKey = jwtSection.Key("jwt_secret_key").String()
+	AppConfig.JWT.AccessTokenDuration = jwtSection.Key("access_token_duration").String()
+	AppConfig.JWT.RefreshTokenDuration = jwtSection.Key("refresh_token_duration").String()
+
+	// Debugging: Log the loaded configurations
 	log.Printf("Loaded httpport: %d", AppConfig.HttpPort)
+	log.Printf("Loaded JWT Secret Key: %s", AppConfig.JWT.SecretKey)
+	log.Printf("Loaded Access Token Duration: %s", AppConfig.JWT.AccessTokenDuration)
+	log.Printf("Loaded Refresh Token Duration: %s", AppConfig.JWT.RefreshTokenDuration)
 
 	return nil
 }
 
 // String returns the value of a configuration key as a string
 func String(key string) string {
-	log.Printf("Fetching config for key: %s", key) // Added logging for debugging
+	log.Printf("Fetching config for key: %s", key)
 	switch key {
 	case "httpport":
 		if AppConfig.HttpPort == 0 {
@@ -64,6 +79,12 @@ func String(key string) string {
 			return "8087"
 		}
 		return fmt.Sprintf("%d", AppConfig.HttpPort)
+	case "jwt_secret_key":
+		return AppConfig.JWT.SecretKey
+	case "access_token_duration":
+		return AppConfig.JWT.AccessTokenDuration
+	case "refresh_token_duration":
+		return AppConfig.JWT.RefreshTokenDuration
 	default:
 		log.Printf("Unknown key '%s'", key)
 		return ""
@@ -82,6 +103,30 @@ func Int(key string) int {
 		return AppConfig.HttpPort
 	default:
 		log.Printf("Unknown int key '%s'", key)
+		return 0
+	}
+}
+
+// ParseDuration safely parses a duration string
+func ParseDuration(key string) time.Duration {
+	log.Printf("Parsing duration for key: %s", key)
+	switch key {
+	case "access_token_duration":
+		duration, err := time.ParseDuration(AppConfig.JWT.AccessTokenDuration)
+		if err != nil {
+			log.Printf("Error parsing access token duration: %v, using default 24h", err)
+			return 24 * time.Hour
+		}
+		return duration
+	case "refresh_token_duration":
+		duration, err := time.ParseDuration(AppConfig.JWT.RefreshTokenDuration)
+		if err != nil {
+			log.Printf("Error parsing refresh token duration: %v, using default 168h", err)
+			return 7 * 24 * time.Hour
+		}
+		return duration
+	default:
+		log.Printf("Unknown duration key '%s'", key)
 		return 0
 	}
 }

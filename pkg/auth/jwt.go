@@ -67,11 +67,7 @@ func getSecretKey() string {
 // getAccessTokenDuration retrieves access token duration from config
 func getAccessTokenDuration() time.Duration {
 	// Check environment variable first
-	if envDuration := os.Getenv("ACCESS_TOKEN_DURATION"); envDuration != "" {
-		if duration, err := time.ParseDuration(envDuration); err == nil {
-			return duration
-		}
-	}
+	
 
 	// Fallback to config file
 	accessDurationStr := config.String("access_token_duration")
@@ -87,12 +83,6 @@ func getAccessTokenDuration() time.Duration {
 
 // getRefreshTokenDuration retrieves refresh token duration from config
 func getRefreshTokenDuration() time.Duration {
-	// Check environment variable first
-	if envDuration := os.Getenv("REFRESH_TOKEN_DURATION"); envDuration != "" {
-		if duration, err := time.ParseDuration(envDuration); err == nil {
-			return duration
-		}
-	}
 
 	// Fallback to config file
 	refreshDurationStr := config.String("refresh_token_duration")
@@ -193,7 +183,41 @@ func HashPassword(password string) (string, error) {
 }
 
 // ComparePasswords compares a hashed password with a plain text password
-func ComparePasswords(hashedPassword, password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	return err == nil
+// In pkg/auth/jwt.go
+func ComparePasswords(hashedPassword, plainPassword string) bool {
+	fmt.Println("")
+    fmt.Println("Comparing Passwords:")
+    fmt.Printf("Stored Hashed Password: %s\n", hashedPassword)
+    fmt.Printf("Plain Password: %s\n", plainPassword)
+
+    // Use bcrypt's built-in comparison method
+    err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
+    
+    if err != nil {
+        fmt.Printf("Password comparison error: %v\n", err)
+        return false
+    }
+
+    fmt.Println("Password match successful")
+    return true
+}
+
+// Verify method to test password generation and comparison
+func VerifyPasswordGeneration(plainPassword, hashedPassword string) bool {
+
+	fmt.Println("verifying....")
+    fmt.Println("Verifying Password Generation:")
+    fmt.Printf("Plain Password: %s\n", plainPassword)
+    fmt.Printf("Stored Hashed Password: %s\n", hashedPassword)
+
+    // Compare the plain password with the stored hash
+    err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
+    
+    if err != nil {
+        fmt.Printf("Verification failed: %v\n", err)
+        return false
+    }
+
+    fmt.Println("Verification successful")
+    return true
 }
