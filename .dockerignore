@@ -1,0 +1,15 @@
+.git
+.gitignore
+*.md
+vendor/
+tmp/
+.env
+.env.test
+.env.development
+.env.production
+
+.env
+*.env
+.git
+.gitignore
+README.md

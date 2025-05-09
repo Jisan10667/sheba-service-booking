@@ -5,9 +5,11 @@ import (
 	"log"
 	"service-booking/config"
 	"sync"
-
+	"time"
+	"os"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -29,11 +31,27 @@ func GetDB() *gorm.DB {
 }
 
 // RegisterMySQL registers a MySQL database connection using GORM
-func 	RegisterMySQL() {
+func RegisterMySQL() {
 	var err error
+	
+	// Create a custom logger
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second,   // Slow SQL threshold
+			LogLevel:                  logger.Silent, // Log level
+			IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
+			ParameterizedQueries:      true,          // Don't include params in the SQL log
+		},
+	)
+
+	// Configuration for connection
 	dsn := config.MySQLConfigString() // Get the connection string from config
 	
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
+	
 	if err != nil {
 		log.Fatalf("Error opening DB connection: %v", err)
 	}
@@ -44,13 +62,19 @@ func 	RegisterMySQL() {
 		log.Fatalf("Error getting underlying DB: %v", err)
 	}
 
-	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool
+	// Connection pool configuration
 	sqlDB.SetMaxIdleConns(10)
-	
-	// SetMaxOpenConns sets the maximum number of open connections to the database
 	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 	
 	fmt.Println("Connected to MySQL database using GORM")
+
+	// Optional: Auto Migrate models
+	// Uncomment and add your models
+	// err = DB.AutoMigrate(&model.User{}, &model.Service{}, &model.Booking{})
+	// if err != nil {
+	// 	log.Fatalf("Error auto-migrating database: %v", err)
+	// }
 }
 
 // CloseDB closes the MySQL database connection

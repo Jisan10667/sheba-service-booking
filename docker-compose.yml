@@ -1,0 +1,66 @@
+services:
+  # Backend Service
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: ${DB_NAME}
+      # Adding this to ensure initialization script runs properly
+      MYSQL_INIT_CONNECT: "SET NAMES utf8mb4;"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # Changed from hidden file to regular file
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    # Adding command to ensure initialization script is executed
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Optional: Adminer for database management
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+# Persistent volume for MySQL data
+volumes:
+  mysql-data:
+    driver: local
+
+# Docker network for service communication
+networks:
+  app-network:
+    driver: bridge
